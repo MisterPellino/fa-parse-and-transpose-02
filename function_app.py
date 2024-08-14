@@ -7,7 +7,7 @@ from azure.storage.blob import BlobServiceClient
 
 app = func.FunctionApp(http_auth_level=func.AuthLevel.FUNCTION)
 
-@app.route(route="http_parse_to_csv")
+@app.route(route="http-parse-to-csv")
 def http_parse_to_csv(req: func.HttpRequest, excel_table_file: func.InputStream) -> func.HttpResponse:
     logging.info('Python HTTP trigger function processed a request.')
 
