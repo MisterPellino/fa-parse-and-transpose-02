@@ -158,11 +158,10 @@ def main(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Ou
 
     ### End data manipulation ###
 
+    # get the first 5 rows of the dataframe to check the output in the response upon success.
     _head = _df_transposed.head().to_json(orient='records')
 
-    # create path location for the output binding
-    
-
+    # Write the data to the output blob.
     try:
         outputblob.set(buffer.getvalue())
     except Exception as e:
