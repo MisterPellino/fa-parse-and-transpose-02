@@ -9,20 +9,7 @@ import datetime as datetime
 
 app = func.FunctionApp()
 
-@app.function_name(name="http-parse-to-csv")
-@app.route(route="http-parse-to-csv")
-@app.blob_input(
-    arg_name="excelfile",
-    path="{input_path}/{input_file}",
-    connection="DATALAKE_STORAGE",
-    data_type="binary"
-)
-@app.blob_output(
-    arg_name="outputblob",
-    path="{output_path}/{output_file}",
-    connection="DATALAKE_STORAGE_OUTPUT",
-    data_type="binary"
-)
+
 def main(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
     _result = {}
     
