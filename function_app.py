@@ -52,6 +52,19 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
 
     download_stream = file_client.download_file()
     file_content = download_stream.readall()
+
+    try:
+        pd.read_excel(file_content, engine='openpyxl')
+    except Exception as e:
+        _result = {
+            "input_path": input_path,
+            "input_file": input_file,
+            "output_path": output_path
+        }
+        _result["error"] = "Error reading the file"
+        _result["status_code"] = 500
+        return func.HttpResponse(json.dumps(_result), status_code=500, mimetype = "application/json")
+    
     ### Manipulate the data ###
 
     
