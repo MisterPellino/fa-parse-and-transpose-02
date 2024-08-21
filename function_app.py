@@ -1,16 +1,25 @@
 import azure.functions as func
 import logging
 import io
+import os
 import re
 import json
 import pandas as pd
 import datetime as datetime
-
+from azure.storage.fileshare import ShareFileClient
 
 app = func.FunctionApp()
+@app.function_name(name="http-parse-to-csv")
+@app.route(route="http-parse-to-csv")
 
+@app.blob_output(
+    arg_name="outputblob",
+    path="{output_path}/{output_file}",
+    connection="DATALAKE_STORAGE_OUTPUT",
+    data_type="binary"
+)
 
-def main(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
+def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
     _result = {}
     
     try:
@@ -34,47 +43,18 @@ def main(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Ou
         _result["status_code"] = 400
         return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=400)
     
+    # Read the data from the input share files.
 
-    # Test if the blob is accessible.
-    try:
-        blob_content = excelfile.read()
-        # print(io.BytesIO(blob_content))
-        if not blob_content:
-            raise ValueError("Blob content is empty")
-    except Exception as e:
-        _result = {
-            "input_file": input_file,
-            "input_path": input_path,
-            "output_path": output_path,
-            "error": f"Failed to read blob: {str(e)}",
-            "status_code": 406
-        }
-        return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=406)
-    
-    
-    # Read the Excel file
-    try:
-        _blob_io = io.BytesIO(blob_content)
-        _df = pd.read_excel(_blob_io, engine='openpyxl')
-    except:
-        _result["error"] = "INPUT FILE CAN'T BE LOADED"
-        _result["status_code"] = 406
-        return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=406)
-    
-    # Check if the file is empty
-    if _df.empty:
-        _result = {
-            "input_path": input_path,
-            "input_file": input_file,
-            "output_path": output_path
-        }
-        _result["error"] = "EMPTY DATAFRAME"
-        _result["status_code"] = 406
-        return func.HttpResponse(json.dumps(_result), status_code=406, mimetype = "application/json")
-    
-    # Check that 
+    file_client = ShareFileClient.from_connection_string(
+       conn_str = os.environ.get("DATALAKE_STORAGE"),
+       share_name=input_path,
+       file_path=input_file)
+
+    download_stream = file_client.download_file()
+    file_content = download_stream.readall()
     ### Manipulate the data ###
 
+    
     try:
         # remove first 6 columns and 2 rows
         _df = _df.iloc[:, 6:]

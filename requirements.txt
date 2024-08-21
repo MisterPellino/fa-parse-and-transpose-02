@@ -6,3 +6,4 @@ azure-functions
 pandas
 azure-storage-blob
 openpyxl
+azure-storage-file-share
