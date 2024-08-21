@@ -54,7 +54,7 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
     file_content = download_stream.readall()
 
     try:
-        pd.read_excel(file_content, engine='openpyxl')
+        _df = pd.read_excel(file_content, engine='openpyxl')
     except Exception as e:
         _result = {
             "input_path": input_path,
