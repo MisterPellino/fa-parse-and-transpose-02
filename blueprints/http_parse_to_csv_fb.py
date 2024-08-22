@@ -44,6 +44,20 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
         _result["status_code"] = 400
         return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=400)
     
+     # check that the input file is the correct excel table
+
+    _units_of_operation = {'DIL', 'DIS', 'TMIX', 'BBR', 'UFDF'}
+
+    if not any(unit in input_file for unit in _units_of_operation):
+        _result = {
+            "input_path": input_path,
+            "input_file": input_file,
+            "output_path": output_path
+        }
+        _result["error"] = "The input file is not a valid file for this function"
+        _result["status_code"] = 400
+        return func.HttpResponse(json.dumps(_result), status_code=400, mimetype = "application/json")
+    
     # Read the data from the input share files.
 
     file_client = ShareFileClient.from_connection_string(
