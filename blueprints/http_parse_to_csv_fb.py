@@ -1,3 +1,10 @@
+"""
+This function app blueürint is used to parse an excel file to a csv file.
+The script is tailored for handeling an xlsm file with a specific format and structure.
+It works with exxel table from the following unit of operation (specific processes in the PDP department, formulation team):
+- DIL, DIS, TMIX, BBR, UFDF
+"""
+
 import azure.functions as func
 import logging
 import io

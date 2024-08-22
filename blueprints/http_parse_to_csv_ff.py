@@ -1,3 +1,10 @@
+"""
+This function app blueürint is used to parse an excel file to a csv file.
+The script is tailored for handeling an xlsm file with a specific format and structure.
+It works with exxel table from the following unit of operation (specific processes in the PDP department, fill and finish team):
+- STOB, LDIL, STOV, VIA
+"""
+
 import azure.functions as func
 import logging
 import io
@@ -46,7 +53,7 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
     
     # check that the input file is the correct excel table
 
-    _units_of_operation = {'STOB', 'LDIL', 'LDIL', 'STOV', 'VIA'}
+    _units_of_operation = {'STOB', 'LDIL', 'STOV', 'VIA'}
 
     if not any(unit in input_file for unit in _units_of_operation):
         _result = {
@@ -58,7 +65,6 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
         _result["status_code"] = 400
         return func.HttpResponse(json.dumps(_result), status_code=400, mimetype = "application/json")
     
-
     # Read the data from the input share files.
 
     file_client = ShareFileClient.from_connection_string(
