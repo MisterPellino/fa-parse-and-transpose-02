@@ -10,8 +10,8 @@ from azure.storage.fileshare import ShareFileClient
 
 bp = func.Blueprint()
 
-@bp.function_name(name="http-parse-to-csv")
-@bp.route(route="http-parse-to-csv")
+@bp.function_name(name="http-parse-to-csv-fb")
+@bp.route(route="http-parse-to-csv-fb")
 
 @bp.blob_output(
     arg_name="outputblob",
