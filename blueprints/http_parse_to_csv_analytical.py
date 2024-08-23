@@ -79,7 +79,7 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
         warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
          # Wrap the byte string in a BytesIO object
         file_content_io = BytesIO(file_content)
-        _df = pd.read_excel(file_content_io, engine='openpyxl')
+        _df = pd.read_excel(file_content_io, engine='openpyxl', header=None)
     except Exception as e:
         _result = {
             "input_path": input_path,
@@ -111,6 +111,8 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
         _df.reset_index(drop=True, inplace=True)
         logging.info("Index reset")
 
+        logging.info(f"Columns set to: {_df.columns.tolist()}")
+
         # correct error in datetime colums
         _df['Spalte_Compiling_Timestamp'] = pd.to_datetime(_df['Spalte_Compiling_Timestamp'], errors='coerce')
         logging.info("Datetime conversion applied")
@@ -120,7 +122,7 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
         _df.to_csv(buffer, index=True)
         buffer.seek(0)
         logging.info("DataFrame converted to CSV")
-        
+
     except Exception as e:
         logging.error(e)
         _result = {
