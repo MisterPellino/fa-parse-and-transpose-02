@@ -18,7 +18,7 @@ from io import BytesIO
 
 bp = func.Blueprint()
 
-@bp.function_name(name="http-parse-to-csv-analytical")
+
 @bp.route(route="http-parse-to-csv-analytical")
 
 @bp.blob_output(
