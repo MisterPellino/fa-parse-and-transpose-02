@@ -27,9 +27,9 @@ bp = func.Blueprint()
     data_type="binary"
 )
 
-def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
+def http_parse_to_csv_fb(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
     _result = {}
-    
+    logging.info("Python HTTP trigger function processed a request.")
     try:
         req_body = req.get_json()
     except ValueError:
@@ -54,7 +54,7 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
      # check that the input file is the correct excel table
 
     _units_of_operation = {'DIL', 'DIS', 'TMIX', 'BBR', 'UFDF'}
-
+    logging.info(f"input_file: {input_file}")
     if not any(unit in input_file for unit in _units_of_operation):
         _result = {
             "input_path": input_path,
@@ -69,8 +69,8 @@ def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func
 
     file_client = ShareFileClient.from_connection_string(
        conn_str = os.environ.get("DATALAKE_STORAGE"),
-       share_name=input_path,
-       file_path=input_file)
+       share_name = input_path,
+       file_path = input_file)
 
     download_stream = file_client.download_file()
     file_content = download_stream.readall()

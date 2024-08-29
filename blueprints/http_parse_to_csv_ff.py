@@ -27,7 +27,7 @@ bp = func.Blueprint()
     data_type="binary"
 )
 
-def main(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
+def http_parse_to_csv_ff(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
     _result = {}
     
     try:
