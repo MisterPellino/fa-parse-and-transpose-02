@@ -61,7 +61,7 @@ def http_parse_to_csv_ff(req: func.HttpRequest, excelfile: func.InputStream, out
     
      # check that the input file is the correct excel table
 
-    _units_of_operation = {'DIL', 'DIS', 'TMIX', 'BBR', 'UFDF'}
+    _units_of_operation = { 'STOB', 'LDIL', 'STOV', 'VIA'}
     logging.info(f"input_file: {input_file}")
     if not any(unit in input_file for unit in _units_of_operation):
         _result = {
@@ -113,8 +113,7 @@ def http_parse_to_csv_ff(req: func.HttpRequest, excelfile: func.InputStream, out
 
     
     ### Manipulate the data ###
-
-    
+ 
     try:
         # remove 0 to 5 rows
         _df = _df.iloc[6:]
