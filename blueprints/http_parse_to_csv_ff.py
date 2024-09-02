@@ -8,17 +8,24 @@ It works with exxel table from the following unit of operation (specific process
 import azure.functions as func
 import logging
 import io
-import os
-import re
+# import os
+# import re
 import json
 import pandas as pd
 import datetime as datetime
-from azure.storage.fileshare import ShareFileClient
+
 
 bp = func.Blueprint()
 
 
 @bp.route(route="http-parse-to-csv-ff")
+
+@bp.blob_input(
+    arg_name="excelfile",
+    path="{input_path}/{input_file}",
+    connection="DATALAKE_STORAGE",
+    data_type="binary"
+)
 
 @bp.blob_output(
     arg_name="outputblob",
@@ -27,9 +34,10 @@ bp = func.Blueprint()
     data_type="binary"
 )
 
-def http_parse_to_csv_ff(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
+def http_parse_to_csv_ff(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
     _result = {}
-    
+    logging.info("Python HTTP trigger function processed a request.")
+
     try:
         req_body = req.get_json()
     except ValueError:
@@ -51,10 +59,10 @@ def http_parse_to_csv_ff(req: func.HttpRequest,  outputblob: func.Out[func.Input
         _result["status_code"] = 400
         return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=400)
     
-    # check that the input file is the correct excel table
+     # check that the input file is the correct excel table
 
-    _units_of_operation = {'STOB', 'LDIL', 'STOV', 'VIA'}
-
+    _units_of_operation = {'DIL', 'DIS', 'TMIX', 'BBR', 'UFDF'}
+    logging.info(f"input_file: {input_file}")
     if not any(unit in input_file for unit in _units_of_operation):
         _result = {
             "input_path": input_path,
@@ -65,64 +73,82 @@ def http_parse_to_csv_ff(req: func.HttpRequest,  outputblob: func.Out[func.Input
         _result["status_code"] = 400
         return func.HttpResponse(json.dumps(_result), status_code=400, mimetype = "application/json")
     
-    # Read the data from the input share files.
-
-    file_client = ShareFileClient.from_connection_string(
-       conn_str = os.environ.get("DATALAKE_STORAGE"),
-       share_name=input_path,
-       file_path=input_file)
-
-    download_stream = file_client.download_file()
-    file_content = download_stream.readall()
-
+    ##### read from blob #####
+    # Test if the blob is accessible.
     try:
-        _df = pd.read_excel(file_content, engine='openpyxl')
+        blob_content = excelfile.read()
+        # print(io.BytesIO(blob_content))
+        if not blob_content:
+            raise ValueError("Blob content is empty")
     except Exception as e:
+        _result = {
+            "input_file": input_file,
+            "input_path": input_path,
+            "output_path": output_path,
+            "error": f"Failed to read blob: {str(e)}",
+            "status_code": 406
+        }
+        return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=406)
+
+
+        # Read the Excel file
+    try:
+        _blob_io = io.BytesIO(blob_content)
+        _df = pd.read_excel(_blob_io, engine='openpyxl')
+    except:
+        _result["error"] = "INPUT FILE CAN'T BE LOADED"
+        _result["status_code"] = 406
+        return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=406)
+
+    # Check if the file is empty
+    if _df.empty:
         _result = {
             "input_path": input_path,
             "input_file": input_file,
             "output_path": output_path
         }
-        _result["error"] = "Error reading the file"
-        _result["status_code"] = 500
-        return func.HttpResponse(json.dumps(_result), status_code=500, mimetype = "application/json")
+        _result["error"] = "EMPTY DATAFRAME"
+        _result["status_code"] = 406
+        return func.HttpResponse(json.dumps(_result), status_code=406, mimetype = "application/json")
+
     
     ### Manipulate the data ###
 
+    
     try:
         # remove 0 to 5 rows
-        df = df.iloc[6:]
+        _df = _df.iloc[6:]
 
         # remove first column
-        df = df.iloc[:, 1:]
+        _df = _df.iloc[:, 1:]
 
         # reset the header to make it to the first row
-        new_header = df.iloc[0] #grab the first row for the header
-        df = df[1:] #take the data less the header row
-        df.columns = new_header #set the header row as the df header
+        new_header = _df.iloc[0] #grab the first row for the header
+        _df = _df[1:] #take the data less the header row
+        _df.columns = new_header #set the header row as the _df header
 
         # remove columns that are not string
-        non_string_columns = [col for col in df.columns if not isinstance(col, str)]
-        df = df.drop(non_string_columns, axis=1)
+        non_string_columns = [col for col in _df.columns if not isinstance(col, str)]
+        _df = _df.drop(non_string_columns, axis=1)
 
         # remove column that starts with ↓
         special_caracter_columns = [
-        col for col in df.columns
+        col for col in _df.columns
             if col.startswith('↑') or col.startswith('↓')
         ]
         
-        df = df.drop(special_caracter_columns, axis=1)
+        _df = _df.drop(special_caracter_columns, axis=1)
 
         # remove rows without ID
-        df = df.dropna(subset=['Parameter name pivot'])
-        df = df[~df['Parameter name pivot'].str.contains('---|Insert')]
+        _df = _df.dropna(subset=['Parameter name pivot'])
+        _df = _df[~_df['Parameter name pivot'].str.contains('---|Insert')]
 
         # change column name: change Parameter name pivot' to 'Experiment ID'
-        df = df.rename(columns={'Parameter name pivot': 'Experiment ID'})
+        _df = _df.rename(columns={'Parameter name pivot': 'Experiment ID'})
 
         # convert table to csv
         buffer = io.BytesIO()
-        df.to_csv(buffer, index=True)
+        _df.to_csv(buffer, index=True)
         buffer.seek(0)
 
     except Exception as e:
@@ -139,7 +165,7 @@ def http_parse_to_csv_ff(req: func.HttpRequest,  outputblob: func.Out[func.Input
     ### End data manipulation ###
 
     # get the first 5 rows of the dataframe to check the output in the response upon success.
-    _head = _df_transposed.head().to_json(orient='records')
+    _head = _df.head().to_json(orient='records')
 
     # Write the data to the output blob.
     try:
