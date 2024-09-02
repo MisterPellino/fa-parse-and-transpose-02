@@ -2,7 +2,7 @@
 This function app blueprint is used to parse an excel file to a csv file.
 The script is tailored for handeling an xlsm file with a specific format and structure.
 It works with exxel table from the following unit of operation (specific processes in the PDP department, fill and finish team):
-- Analytical
+- Analytical.
 """
 
 import azure.functions as func
