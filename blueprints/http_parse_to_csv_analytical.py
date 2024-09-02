@@ -18,7 +18,7 @@ import datetime as datetime
 bp = func.Blueprint()
 
 
-@bp.route(route="http-parse-to-csv-ff")
+@bp.route(route="http-parse-to-csv-analytical")
 
 @bp.blob_input(
     arg_name="excelfile",
@@ -34,7 +34,7 @@ bp = func.Blueprint()
     data_type="binary"
 )
 
-def http_parse_to_csv_ff(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
+def http_parse_to_csv_analytical(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
     _result = {}
     logging.info("Python HTTP trigger function processed a request.")
 
@@ -94,7 +94,7 @@ def http_parse_to_csv_ff(req: func.HttpRequest, excelfile: func.InputStream, out
         # Read the Excel file
     try:
         _blob_io = io.BytesIO(blob_content)
-        _df = pd.read_excel(_blob_io, engine='openpyxl')
+        _df = pd.read_excel(_blob_io, engine='openpyxl', header=None)
     except:
         _result["error"] = "INPUT FILE CAN'T BE LOADED"
         _result["status_code"] = 406
@@ -113,7 +113,7 @@ def http_parse_to_csv_ff(req: func.HttpRequest, excelfile: func.InputStream, out
 
     
     ### Manipulate the data ###
- 
+    logging.info(f"Initial DataFrame filename: {input_file}")
     try:
         logging.info(f"Initial DataFrame shape: {_df.shape}")
 
