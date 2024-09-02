@@ -1,25 +1,31 @@
 """
-This function app blueürint is used to parse an excel file to a csv file.
+This function app blueprint is used to parse an excel file to a csv file.
 The script is tailored for handeling an xlsm file with a specific format and structure.
-It works with exxel table from the Analytical excel tables
+It works with exxel table from the following unit of operation (specific processes in the PDP department, fill and finish team):
+- STOB, LDIL, STOV, VIA
 """
 
 import azure.functions as func
 import logging
 import io
-import os
-import re
+# import os
+# import re
 import json
 import pandas as pd
 import datetime as datetime
-import warnings
-from azure.storage.fileshare import ShareFileClient
-from io import BytesIO
+
 
 bp = func.Blueprint()
 
 
-@bp.route(route="http-parse-to-csv-analytical")
+@bp.route(route="http-parse-to-csv-ff")
+
+@bp.blob_input(
+    arg_name="excelfile",
+    path="{input_path}/{input_file}",
+    connection="DATALAKE_STORAGE",
+    data_type="binary"
+)
 
 @bp.blob_output(
     arg_name="outputblob",
@@ -28,9 +34,10 @@ bp = func.Blueprint()
     data_type="binary"
 )
 
-def http_parse_to_csv_analytical(req: func.HttpRequest,  outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
+def http_parse_to_csv_ff(req: func.HttpRequest, excelfile: func.InputStream, outputblob: func.Out[func.InputStream]) -> func.HttpResponse:
     _result = {}
-    
+    logging.info("Python HTTP trigger function processed a request.")
+
     try:
         req_body = req.get_json()
     except ValueError:
@@ -52,8 +59,10 @@ def http_parse_to_csv_analytical(req: func.HttpRequest,  outputblob: func.Out[fu
         _result["status_code"] = 400
         return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=400)
     
-    _units_of_operation = {'Analytical'}
+     # check that the input file is the correct excel table
 
+    _units_of_operation = { 'Analytical'}
+    logging.info(f"input_file: {input_file}")
     if not any(unit in input_file for unit in _units_of_operation):
         _result = {
             "input_path": input_path,
@@ -64,34 +73,47 @@ def http_parse_to_csv_analytical(req: func.HttpRequest,  outputblob: func.Out[fu
         _result["status_code"] = 400
         return func.HttpResponse(json.dumps(_result), status_code=400, mimetype = "application/json")
     
-    # Read the data from the input share files.
-
-    file_client = ShareFileClient.from_connection_string(
-       conn_str = os.environ.get("DATALAKE_STORAGE"),
-       share_name=input_path,
-       file_path=input_file)
-
-    download_stream = file_client.download_file()
-    file_content = download_stream.readall()
-
+    ##### read from blob #####
+    # Test if the blob is accessible.
     try:
-        # Suppress the specific UserWarning
-        warnings.filterwarnings("ignore", category=UserWarning, module="openpyxl")
-         # Wrap the byte string in a BytesIO object
-        file_content_io = BytesIO(file_content)
-        _df = pd.read_excel(file_content_io, engine='openpyxl', header=None)
+        blob_content = excelfile.read()
+        # print(io.BytesIO(blob_content))
+        if not blob_content:
+            raise ValueError("Blob content is empty")
     except Exception as e:
+        _result = {
+            "input_file": input_file,
+            "input_path": input_path,
+            "output_path": output_path,
+            "error": f"Failed to read blob: {str(e)}",
+            "status_code": 406
+        }
+        return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=406)
+
+
+        # Read the Excel file
+    try:
+        _blob_io = io.BytesIO(blob_content)
+        _df = pd.read_excel(_blob_io, engine='openpyxl')
+    except:
+        _result["error"] = "INPUT FILE CAN'T BE LOADED"
+        _result["status_code"] = 406
+        return func.HttpResponse(json.dumps(_result, indent=4), mimetype="application/json", status_code=406)
+
+    # Check if the file is empty
+    if _df.empty:
         _result = {
             "input_path": input_path,
             "input_file": input_file,
             "output_path": output_path
         }
-        _result["error"] = "Error reading the file"
-        _result["status_code"] = 500
-        return func.HttpResponse(json.dumps(_result), status_code=500, mimetype = "application/json")
+        _result["error"] = "EMPTY DATAFRAME"
+        _result["status_code"] = 406
+        return func.HttpResponse(json.dumps(_result), status_code=406, mimetype = "application/json")
+
     
     ### Manipulate the data ###
-
+ 
     try:
         logging.info(f"Initial DataFrame shape: {_df.shape}")
 
@@ -134,11 +156,11 @@ def http_parse_to_csv_analytical(req: func.HttpRequest,  outputblob: func.Out[fu
         _result["status_code"] = 500
         return func.HttpResponse(json.dumps(_result), status_code=500, mimetype = "application/json")
 
-    ### End data manipulation ###    
+    ### End data manipulation ###
 
-    # get the first 5 rows of the dataframe to return in the response
+    # get the first 5 rows of the dataframe to check the output in the response upon success.
+    _head = _df.head().to_json(orient='records')
 
-    _head = _df.head().to_json(orient="records")
     # Write the data to the output blob.
     try:
         outputblob.set(buffer.getvalue())
